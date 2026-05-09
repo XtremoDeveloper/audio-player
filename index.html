@@ -201,57 +201,125 @@
         const aleatorioButton = document.getElementById('aleatorio');
         const anteriorButton = document.getElementById('anterior');
         const siguienteButton = document.getElementById('siguiente');
+
         let archivos = [];
         let indiceActual = 0;
         let aleatorioActivo = false;
 
+        let historial = [];
+        let historialIndex = -1;
+        let retrocesoUsado = false;
+
         carpetaAudio.addEventListener('change', (e) => {
-            archivos = Array.from(e.target.files).filter(file => file.type === 'audio/mpeg');
-            if (aleatorioActivo) {
-                reproducirAleatorio();
+            archivos = Array.from(e.target.files).filter(file =>
+                file.type === 'audio/mpeg' ||
+                file.type === 'audio/mp4' ||
+                file.type === 'audio/x-m4a' ||
+                file.name.toLowerCase().endsWith('.mp3') ||
+                file.name.toLowerCase().endsWith('.m4a')
+            );
+
+            historial = [];
+            historialIndex = -1;
+            indiceActual = 0;
+            retrocesoUsado = false;
+
+            if (archivos.length > 0) {
+                reproducirArchivo(indiceActual);
             }
         });
 
         aleatorioButton.addEventListener('click', () => {
             aleatorioActivo = !aleatorioActivo;
+            retrocesoUsado = false;
+
             if (aleatorioActivo) {
                 aleatorioButton.textContent = 'Desactivar Reproducción Aleatoria Automática';
-                reproducirAleatorio();
+
+                // Cambiar inmediatamente a canción aleatoria
+                if (archivos.length > 0) {
+                    reproducirAleatorio();
+                }
+
             } else {
                 aleatorioButton.textContent = 'Reproducción Aleatoria Automática';
             }
         });
 
         anteriorButton.addEventListener('click', () => {
-            indiceActual = (indiceActual - 1 + archivos.length) % archivos.length;
-            reproducirArchivo(indiceActual);
+            if (archivos.length === 0) return;
+
+            if (aleatorioActivo) {
+
+                if (!retrocesoUsado && historialIndex > 0) {
+                    historialIndex--;
+                    indiceActual = historial[historialIndex];
+                    reproducirArchivo(indiceActual, false);
+                    retrocesoUsado = true;
+                } else {
+                    reproducirAleatorio();
+                    retrocesoUsado = false;
+                }
+
+            } else {
+                indiceActual = (indiceActual - 1 + archivos.length) % archivos.length;
+                reproducirArchivo(indiceActual);
+            }
         });
 
         siguienteButton.addEventListener('click', () => {
-            indiceActual = (indiceActual + 1) % archivos.length;
-            reproducirArchivo(indiceActual);
+            if (archivos.length === 0) return;
+
+            retrocesoUsado = false;
+
+            if (aleatorioActivo) {
+                reproducirAleatorio();
+            } else {
+                indiceActual = (indiceActual + 1) % archivos.length;
+                reproducirArchivo(indiceActual);
+            }
         });
 
         function reproducirAleatorio() {
             if (archivos.length === 0) return;
-            indiceActual = Math.floor(Math.random() * archivos.length);
+
+            let nuevoIndice;
+
+            do {
+                nuevoIndice = Math.floor(Math.random() * archivos.length);
+            } while (archivos.length > 1 && nuevoIndice === indiceActual);
+
+            indiceActual = nuevoIndice;
             reproducirArchivo(indiceActual);
         }
 
-        function reproducirArchivo(indice) {
+        function reproducirArchivo(indice, guardarHistorial = true) {
             const archivo = archivos[indice];
             const reader = new FileReader();
+
             reader.onload = (e) => {
                 audio.src = e.target.result;
                 audio.play();
                 tituloAudio.textContent = archivo.name;
             };
+
             reader.readAsDataURL(archivo);
+
+            if (guardarHistorial) {
+                historial = historial.slice(0, historialIndex + 1);
+                historial.push(indice);
+                historialIndex++;
+            }
         }
 
         audio.addEventListener('ended', () => {
+            retrocesoUsado = false;
+
             if (aleatorioActivo) {
                 reproducirAleatorio();
+            } else {
+                indiceActual = (indiceActual + 1) % archivos.length;
+                reproducirArchivo(indiceActual);
             }
         });
     </script>
